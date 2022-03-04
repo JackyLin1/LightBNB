@@ -1,6 +1,6 @@
 const properties = require('./json/properties.json');
 const users = require('./json/users.json');
-const{Pool} = require('pg')
+const {Pool} = require('pg')
 
 const pool = new Pool ({
   user:'labber',
@@ -34,8 +34,7 @@ const getUserWithId = function(id) {
   return pool.query(
     `SELECT *
     FROM users
-    WHERE id = $1`, [id]
-  )
+    WHERE id = $1`, [id])
   .then (res => res.row[0])
 };
 exports.getUserWithId = getUserWithId;
@@ -64,7 +63,18 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function(guest_id, limit = 10) {
-  return getAllProperties(null, 2);
+  return pool.query (`
+  SELECT reservations.*, properties.*, AVG(property_reviews.rating) AS average_rating
+  FROM users
+  JOIN reservations ON reservations.guest_id = users.id
+  JOIN properties ON reservations.property_id = properties.id
+  JOIN property_reviews ON properties.id = property_reviews.property_id
+  WHERE reservations.guest_id = $1 
+  AND reservations.end_date < now()::date
+  GROUP BY reservations.id, properties.id
+  ORDER BY start_date DESC
+  LIMIT $2;`, [guest_id, limit])
+  .then(res => res.rows)
 }
 exports.getAllReservations = getAllReservations;
 
